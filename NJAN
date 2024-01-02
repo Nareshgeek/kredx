@@ -1,0 +1,92 @@
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class NJANTool {
+
+        private static final ObjectMapper objectMapper = new ObjectMapper();
+
+        public static void main(String[] args) {
+            if (args.length == 1 && args[0].equals("validate")) {
+                validateNJAN();
+            } else if (args.length == 2 && args[0].equals("query")) {
+                queryNJAN(args[1]);
+            } else {
+                System.err.println("Invalid command. Usage: njan validate OR njan query $QUERY_STRING");
+                System.exit(1);
+            }
+        }
+
+        private static void validateNJAN() {
+            String inputText = System.console().readLine();
+            boolean isValid = validateNJANFormat(inputText);
+            if (isValid) {
+                System.exit(0);
+            } else {
+                System.exit(1);
+            }
+        }
+
+        private static void queryNJAN(String queryString) {
+            try {
+                String inputText = System.console().readLine();
+                JsonNode data = objectMapper.readTree(inputText);
+                String[] indices = queryString.split("\\.");
+
+                JsonNode result = performQuery(data, indices);
+                if (result != null) {
+                    System.out.println(result.toString());
+                    System.exit(0);
+                } else {
+                    System.exit(1);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                System.exit(1);
+            }
+        }
+
+        private static boolean validateNJANFormat(String inputText) {
+            try {
+                JsonNode data = objectMapper.readTree(inputText);
+                return validateNJANRecursive(data);
+            } catch (IOException e) {
+                return false;
+            }
+        }
+
+        private static boolean validateNJANRecursive(JsonNode data) {
+            if (data.isTextual()) {
+                // Check for JSON string with only ASCII characters without quotes or backslashes
+                String text = data.asText();
+                return text.chars().allMatch(c -> c < 128 && c != '"' && c != '\\');
+            } else if (data.isArray()) {
+                // Check for a JSON array with elements being valid NJAN items recursively
+                List<Boolean> validations = new ArrayList<>();
+                for (JsonNode node : data) {
+                    validations.add(validateNJANRecursive(node));
+                }
+                return validations.stream().allMatch(Boolean::booleanValue);
+            }
+            return false;
+        }
+
+        private static JsonNode performQuery(JsonNode data, String[] query) {
+            for (String index : query) {
+                try {
+                    int idx = Integer.parseInt(index);
+                    if (data.isArray() && idx >= 0 && idx < data.size()) {
+                        data = data.get(idx);
+                    } else {
+                        return null; // Index out of bounds or not an array
+                    }
+                } catch (NumberFormatException | NullPointerException e) {
+                    return null; // Invalid index or not an array
+                }
+            }
+            return data;
+        }
+}
