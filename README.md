@@ -1,1 +1,1 @@
-All answers are written as seperate file.
+Answers are written in seperate file.
